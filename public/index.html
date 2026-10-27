@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f5ed">
+  <title>작은 상영관 · 치이카와</title>
+  <link rel="stylesheet" href="/styles.css"><script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="/">◌ <span>작은 상영관</span><small>CHIIKAWA WATCH ROOM</small></a><span class="local-badge"><i></i> 나만의 시청 기록</span></header>
+  <main>
+    <section class="intro"><div><p class="eyebrow">A LITTLE BREAK, A LITTLE JOY</p><h1>오늘도, 치이카와<span>와 함께.</span></h1><p class="intro-copy">작고 소중한 이야기들. 좋아하는 순간부터 천천히 이어 보세요.</p></div><div class="doodle" aria-hidden="true"><span class="spark">✦</span><div class="face"><b>• ᴗ •</b><span>●　　●</span></div><span class="flower">✿</span></div></section>
+    <section class="resume" id="resume" hidden><div><span class="pill">이어서 보기</span><strong id="resume-title"></strong><p id="resume-description"></p></div><button id="resume-button">계속 보기 <span>↗</span></button></section>
+    <div class="watch-layout">
+      <section class="watch">
+        <div class="player-shell"><div id="player"></div></div>
+        <div id="status" class="status" role="status">유튜브 플레이어를 준비하고 있어요.</div>
+        <div class="video-heading"><div><p class="eyebrow" id="position">지금 상영 중</p><h2 id="video-title">제2화 · 스핑크스 / 진짜다</h2></div><button id="complete" class="outline">✓ 시청 완료 표시</button></div>
+        <div class="playback"><button id="previous" class="outline" disabled>← 이전 영상</button><a id="youtube-link" href="https://www.youtube.com/watch?v=i6d3K6ln-d4" target="_blank" rel="noreferrer">YouTube에서 열기 ↗</a><button id="next" class="outline" disabled>다음 영상 →</button></div>
+        <section class="translation"><div class="translation-icon">あ<span>가</span></div><div><div class="translation-label">한국어 번역 <span>준비 중</span></div><p>일본어 원문을 확보한 뒤, 재생 시간에 맞춘 한국어 번역을 이곳에 표시할 예정이에요.</p><small>현재 프로토타입에는 번역 자막이 포함되어 있지 않습니다.</small></div></section>
+        <p class="footnote">공식 YouTube 플레이어로 재생합니다. 영상의 공개 상태와 외부 재생 설정에 따라 시청이 제한될 수 있어요.</p>
+      </section>
+      <aside class="library"><div class="library-header"><div><p class="eyebrow">THE COLLECTION</p><h2>이야기 모음 <span id="count">01</span></h2></div><a href="https://www.youtube.com/playlist?list=PLMBLbvGZhkvJz0u2YjX8i9iEWcHJ-rwf5" target="_blank" rel="noreferrer" aria-label="유튜브 재생목록 열기">↗</a></div><label class="search"><span>⌕</span><input id="search" type="search" placeholder="제목 또는 목록 번호 검색" aria-label="영상 검색"></label><div class="filters"><button class="active" data-filter="all">전체</button><button data-filter="unwatched">아직 안 본 영상</button><button data-filter="watched">시청 완료</button></div><p class="list-note" id="list-note">제공하신 영상부터 시작해요. 재생목록을 불러오면 목록이 확장됩니다.</p><div id="episodes" class="episodes"></div><p id="empty" hidden>조건에 맞는 영상이 없어요.</p><div class="saved-note"><span>◷</span><p>마지막으로 본 순간을 기억해요.<small>이 브라우저에만 저장됩니다.</small></p></div></aside>
+    </div>
+    <footer><span>작은 이야기, 기분 좋은 쉼표.</span><button id="reset">시청 기록 초기화</button></footer>
+  </main>
+</body>
+</html>
