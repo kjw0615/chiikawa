@@ -1,138 +1,141 @@
-const PLAYLIST = 'PLMBLbvGZhkvJz0u2YjX8i9iEWcHJ-rwf5';
-const SEED = 'i6d3K6ln-d4';
-const KEY = 'chiikawa-watch-room-v1';
-const $ = (id) => document.getElementById(id);
+const PLAYLIST = 'PLRU7nJfHLAe8';
+const SEED = 'kzAfNg6pAvI';
+const KEY = `chiikawa-watch-room-ko-${PLAYLIST}-v1`;
+const $ = id => document.getElementById(id);
+const validId = id => typeof id === 'string' && /^[\w-]{11}$/.test(id);
+const validTime = time => Number.isFinite(time) && time >= 0;
+const catalog = window.EPISODES || [{id:SEED,title:'1화 · 단단한 푸딩, 핫케이크'}];
+const names = new Map(catalog.map(item => [item.id, item.title]));
 let state = { videos: {}, last: null };
 let storageAvailable = true;
-try { const saved = JSON.parse(localStorage.getItem(KEY)); if (saved && typeof saved.videos === 'object' && saved.videos !== null) { state.videos = saved.videos; if (saved.last && /^[\w-]{11}$/.test(saved.last.id) && Number.isFinite(saved.last.time) && saved.last.time >= 0) state.last = saved.last; } } catch { storageAvailable = false; }
-let ids = [SEED], player, current = SEED, filter = 'all', ready = false, pendingResume = null, rendered = '';
-const title = id => id === SEED ? '제2화 · 스핑크스 / 진짜다' : `재생목록 ${ids.indexOf(id) + 1}번째 영상`;
-const timeText = t => `${Math.floor(t / 60)}분 ${Math.floor(t % 60)}초`;
-const SUBTITLE_KEY = 'chiikawa-subtitles-ko-v1';
-let subtitles = [], subtitlesEnabled = true;
-function parseSubtitles(text) {
-  const timestamp = value => {
-    const parts = value.replace(',', '.').split(':').map(Number);
-    return parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
-  };
-  return text.replace(/^\uFEFF/, '').replace(/\r/g, '').split(/\n\s*\n/).flatMap(block => {
-    const lines = block.split('\n');
-    const index = lines.findIndex(line => /^\s*(?:(?:\d{2,}):)?\d{2}:\d{2}[.,]\d{3}\s+-->/.test(line));
-    if (index < 0) return [];
-    const match = lines[index].match(/^\s*((?:\d{2,}:)?\d{2}:\d{2}[.,]\d{3})\s+-->\s+((?:\d{2,}:)?\d{2}:\d{2}[.,]\d{3})(?:\s.*)?$/);
-    if (!match) return [];
-    const start = timestamp(match[1]), end = timestamp(match[2]);
-    const content = lines.slice(index + 1).join('\n').replace(/<[^>]*>/g, '').trim();
-    return Number.isFinite(start) && Number.isFinite(end) && end > start && content ? [{ start, end, text: content }] : [];
-  }).sort((a, b) => a.start - b.start);
-}
-try { const saved = localStorage.getItem(SUBTITLE_KEY); if (saved) subtitles = parseSubtitles(saved); } catch {}
-function updateSubtitles() {
-  const video = ready ? player.getVideoData()?.video_id : current;
-  const isEpisodeTwo = video === SEED;
-  $('subtitle-status').textContent = !isEpisodeTwo ? '다른 영상 · 자막 미등록' : subtitles.length ? `2화 · ${subtitles.length}개 자막` : '2화 · 자막 필요';
-  $('subtitle-toggle').disabled = !isEpisodeTwo || !subtitles.length;
-  let message = !isEpisodeTwo ? '현재 영상에는 한국어 자막이 없습니다. 추가한 파일은 2화에만 적용됩니다.' : !subtitles.length ? '2화 한국어 자막 파일을 추가하면 영상 시간에 맞춰 표시합니다.' : !subtitlesEnabled ? '한국어 자막을 껐습니다.' : '…';
-  if (isEpisodeTwo && subtitles.length && subtitlesEnabled && ready) {
-    const time = player.getCurrentTime();
-    const active = subtitles.filter(cue => cue.start <= time && time < cue.end);
-    if (active.length) message = active.map(cue => cue.text).join('\n');
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY));
+  if (saved && typeof saved.videos === 'object' && saved.videos) {
+    state.videos = saved.videos;
+    if (saved.last && validId(saved.last.id) && validTime(saved.last.time)) state.last = saved.last;
   }
-  if ($('subtitle-text').textContent !== message) $('subtitle-text').textContent = message;
+} catch { storageAvailable = false; }
+let ids = catalog.map(item => item.id), current = SEED, player, ready = false, visible = false;
+let apiPromise, pending = null, rendered = '';
+const title = id => names.get(id) || state.videos[id]?.title || `재생목록 ${ids.indexOf(id) + 1}번째 영상`;
+const timeText = time => `${Math.floor(time / 60)}분 ${Math.floor(time % 60)}초`;
+function persist() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); }
+  catch { storageAvailable = false; $('status').textContent = '이 브라우저에서는 시청 기록을 저장할 수 없습니다.'; }
 }
-$('subtitle-file').addEventListener('change', async event => {
-  const file = event.target.files[0]; if (!file) return;
-  try {
-    if (file.size > 1024 * 1024) throw new Error('1MB 이하의 자막 파일을 선택해 주세요.');
-    const text = await file.text(); const parsed = parseSubtitles(text);
-    if (!parsed.length) throw new Error('시간 정보가 있는 UTF-8 VTT 또는 SRT 자막 파일인지 확인해 주세요.');
-    subtitles = parsed;
-    try { localStorage.setItem(SUBTITLE_KEY, text); $('subtitle-help').textContent = `2화 한국어 자막 ${parsed.length}개를 이 브라우저에 저장했습니다.`; }
-    catch { $('subtitle-help').textContent = '자막을 불러왔지만 저장소 제한으로 이번 방문에만 사용할 수 있습니다.'; }
-    updateSubtitles();
-  } catch (error) { $('subtitle-help').textContent = error.message; }
-  event.target.value = '';
-});
-$('subtitle-toggle').onclick = () => { subtitlesEnabled = !subtitlesEnabled; $('subtitle-toggle').textContent = subtitlesEnabled ? '자막 켜짐' : '자막 꺼짐'; $('subtitle-toggle').setAttribute('aria-pressed', String(subtitlesEnabled)); updateSubtitles(); };
-setInterval(updateSubtitles, 150);
-updateSubtitles();
-function persist() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { storageAvailable = false; $('status').textContent = '브라우저 저장소를 사용할 수 없어 시청 기록이 유지되지 않습니다.'; } }
-function showResume() { const last = state.last; $('resume').hidden = !last; if (!last) return; $('resume-title').textContent = last.title || title(last.id); $('resume-description').textContent = `${timeText(last.time)}부터 이어 볼 수 있어요. 재생 버튼을 눌러 시작하세요.`; }
+function showResume() {
+  const last = state.last; $('resume').hidden = !last;
+  if (last) { $('resume-title').textContent = title(last.id); $('resume-description').textContent = `${timeText(last.time)}부터 이야기를 이어 가요.`; }
+}
 function render() {
-  const query = $('search').value.trim().toLowerCase();
-  const signature = JSON.stringify([ids, current, filter, query, ids.map(id => !!state.videos[id]?.completed)]);
-  if (signature === rendered) return;
-  rendered = signature;
-  const visible = ids.filter((id, i) => (!query || `${title(id)} ${i + 1}`.toLowerCase().includes(query)) && (filter === 'all' || (filter === 'watched' ? state.videos[id]?.completed : !state.videos[id]?.completed)));
-  $('episodes').replaceChildren();
-  visible.forEach(id => {
-    const button = document.createElement('button'); button.className = `episode${current === id ? ' selected' : ''}`; button.setAttribute('aria-current', current === id ? 'true' : 'false');
-    const thumb = document.createElement('div'); thumb.className = 'thumb';
-    const img = document.createElement('img'); img.src = `https://i.ytimg.com/vi/${id}/mqdefault.jpg`; img.alt = ''; img.loading = 'lazy'; thumb.append(img);
-    if (current === id) { const tag = document.createElement('span'); tag.className = 'play-tag'; tag.textContent = '▶ 선택한 영상'; thumb.append(tag); }
-    const info = document.createElement('div'); info.className = 'episode-info';
-    const small = document.createElement('small'); small.textContent = ids.length > 1 ? `LIST ${String(ids.indexOf(id) + 1).padStart(2, '0')}` : 'SAMPLE VIDEO';
-    const strong = document.createElement('strong'); strong.textContent = title(id); info.append(small, strong);
-    if (state.videos[id]?.completed) { const badge = document.createElement('span'); badge.className = 'watched'; badge.textContent = '✓ 시청 완료'; info.append(badge); }
-    button.append(thumb, info); button.addEventListener('click', () => select(id)); $('episodes').append(button);
-  });
-  $('empty').hidden = visible.length !== 0; $('count').textContent = String(ids.length).padStart(2, '0');
-  $('complete').textContent = state.videos[current]?.completed ? '✓ 시청 완료 취소' : '✓ 시청 완료 표시';
+  const signature = JSON.stringify([ids, ids.map(id => [title(id), !!state.videos[id]?.completed])]);
+  if (signature !== rendered) {
+    const selected = $('episode-select').value;
+    $('episode-select').replaceChildren(...ids.map(id => {
+      const option = document.createElement('option'); option.value = id;
+      option.textContent = `${title(id)}${state.videos[id]?.completed ? ' · 시청 완료' : ''}`; return option;
+    }));
+    if (ids.includes(selected)) $('episode-select').value = selected;
+    rendered = signature;
+  }
+  $('complete').textContent = state.videos[$('episode-select').value]?.completed ? '✓ 시청 완료 취소' : '✓ 시청 완료 표시';
+}
+function saveProgress(force = false) {
+  if (!ready || !visible || (!force && player.getPlayerState() !== 1)) return;
+  const id = player.getVideoData()?.video_id, time = player.getCurrentTime();
+  if (!validId(id) || !validTime(time)) return;
+  const name = player.getVideoData()?.title || title(id);
+  state.videos[id] = { ...state.videos[id], time, title: name };
+  state.last = { id, time, title: name }; persist(); showResume();
 }
 function sync() {
   if (!ready) return;
-  const playlist = player.getPlaylist();
-  if (playlist?.length) { ids = [...new Set(playlist.filter(id => /^[\w-]{11}$/.test(id)))]; $('list-note').textContent = '목록 번호는 재생목록 순서입니다. 실제 회차와 다를 수 있어요. 제공된 예시 외 영상은 제목 대신 목록 번호로 표시합니다.'; }
-  const id = player.getVideoData()?.video_id; if (id && /^[\w-]{11}$/.test(id)) { current = id; if (!ids.includes(id)) ids.push(id); }
-  $('video-title').textContent = player.getVideoData()?.title || title(current);
-  $('position').textContent = ids.length > 1 ? `지금 상영 중 · 목록 ${ids.indexOf(current) + 1} / ${ids.length}` : '지금 상영 중 · 예시 영상';
-  $('youtube-link').href = `https://www.youtube.com/watch?v=${current}`;
-  $('previous').disabled = ids.indexOf(current) <= 0; $('next').disabled = ids.indexOf(current) >= ids.length - 1;
+  const playlist = player.getPlaylist()?.filter(validId);
+  // The embedded player may return only part of a large playlist. Keep the full catalog.
+  if (playlist?.length) ids = [...new Set([...catalog.map(item => item.id), ...playlist])];
+  const data = player.getVideoData();
+  const changed = validId(data?.video_id) && current !== data.video_id;
+  if (validId(data?.video_id)) {
+    current = data.video_id;
+    if (!ids.includes(current)) ids.push(current);
+    if (data.title) state.videos[current] = { ...state.videos[current], title: data.title };
+    if (visible) { $('video-title').textContent = title(current); $('position').textContent = '지금 상영 중 · 한국어 더빙'; }
+    $('youtube-link').href = `https://www.youtube.com/watch?v=${current}&list=${PLAYLIST}`;
+  }
+  $('previous').disabled = ids.indexOf(current) <= 0;
+  $('next').disabled = ids.indexOf(current) >= ids.length - 1;
   render();
+  if (changed) $('episode-select').value = current;
 }
-function saveProgress() {
-  if (!ready || player.getPlayerState() !== 1) return;
-  const id = player.getVideoData()?.video_id;
-  const time = player.getCurrentTime(); if (!id || !Number.isFinite(time)) return;
-  state.videos[id] = { ...state.videos[id], time };
-  state.last = { id, time, title: player.getVideoData()?.title || title(id) }; persist(); showResume();
+function loadApi() {
+  if (window.YT?.Player) return Promise.resolve();
+  if (apiPromise) return apiPromise;
+  apiPromise = new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('YouTube 연결이 지연되고 있어요. 잠시 후 다시 시도해 주세요.')), 15000);
+    window.onYouTubeIframeAPIReady = () => { clearTimeout(timeout); resolve(); };
+    const script = document.createElement('script'); script.src = 'https://www.youtube.com/iframe_api';
+    script.onerror = () => { clearTimeout(timeout); script.remove(); reject(new Error('YouTube에 연결하지 못했어요. 인터넷 연결을 확인해 주세요.')); };
+    document.head.append(script);
+  }).catch(error => { apiPromise = null; throw error; });
+  return apiPromise;
 }
-function select(id, seconds) {
-  if (!ready) { $('status').textContent = '플레이어 연결 후 다시 눌러 주세요.'; return; }
-  saveProgress();
-  const start = seconds ?? (state.videos[id]?.completed ? 0 : state.videos[id]?.time || 0);
-  const index = ids.indexOf(id);
-  if (index >= 0 && player.getPlaylist()?.includes(id)) {
-    pendingResume = { id, time: start }; player.playVideoAt(index);
-  } else { pendingResume = null; player.loadVideoById({ videoId: id, startSeconds: start }); }
-  current = id; render();
+function playPending() {
+  if (!pending || !ready) return;
+  const request = pending, list = player.getPlaylist() || [];
+  if (list.includes(request.id)) player.playVideoAt(list.indexOf(request.id));
+  else player.loadVideoById({ videoId: request.id, startSeconds: request.time });
 }
-window.onYouTubeIframeAPIReady = () => {
-  player = new YT.Player('player', { width: '100%', height: '100%', videoId: SEED,
-    playerVars: { listType: 'playlist', list: PLAYLIST, playsinline: 1, origin: location.origin, autoplay: 0 },
-    events: {
-      onReady: () => { ready = true; $('status').textContent = storageAvailable ? '재생 버튼을 누르면 시작합니다. 시청 위치는 자동으로 저장돼요.' : '이 브라우저에서는 시청 기록을 저장할 수 없습니다.'; sync(); },
-      onStateChange: event => {
-        sync();
-        if (event.data === 1 && pendingResume && player.getVideoData()?.video_id === pendingResume.id) { player.seekTo(pendingResume.time, true); pendingResume = null; }
-        if (event.data === 2) { const id = player.getVideoData()?.video_id; const time = player.getCurrentTime(); if (id && Number.isFinite(time)) { state.videos[id] = { ...state.videos[id], time }; state.last = { id, time, title: player.getVideoData()?.title || title(id) }; persist(); showResume(); } }
-        if (event.data === 0) { state.videos[current] = { ...state.videos[current], completed: true }; persist(); render(); }
-      },
-      onError: e => { $('status').textContent = `영상을 재생할 수 없습니다 (${e.data}). YouTube에서 열기를 사용하거나 다른 영상을 선택해 주세요.`; },
-      onAutoplayBlocked: () => { $('status').textContent = '브라우저가 자동 재생을 막았습니다. 플레이어의 재생 버튼을 눌러 주세요.'; }
-    }
-  });
+async function start(id, seconds) {
+  if (!validId(id)) return;
+  saveProgress(true);
+  if (!ids.includes(id)) ids.push(id);
+  render(); $('episode-select').value = id;
+  const previous = state.videos[id];
+  pending = { id, time: validTime(seconds) ? seconds : previous?.completed ? 0 : validTime(previous?.time) ? previous.time : 0 };
+  $('start-button').disabled = true; $('status').textContent = '이야기를 준비하고 있어요…';
+  try {
+    await loadApi(); visible = true; $('waiting').hidden = true; $('player-shell').hidden = false; $('playback').hidden = false;
+    if (ready) { playPending(); $('start-button').disabled = false; $('status').textContent = '시청 위치는 자동으로 저장돼요.'; return; }
+    if (player) return;
+    current = id;
+    player = new YT.Player('player', {
+      width: '100%', height: '100%', videoId: id,
+      playerVars: { listType: 'playlist', list: PLAYLIST, playsinline: 1, origin: location.origin, autoplay: 0 },
+      events: {
+        onReady: () => { ready = true; sync(); playPending(); $('start-button').disabled = false; $('status').textContent = storageAvailable ? '시청 위치는 자동으로 저장돼요.' : '이 브라우저에서는 시청 기록을 저장할 수 없습니다.'; },
+        onStateChange: event => {
+          sync();
+          if (event.data === 1 && pending && player.getVideoData()?.video_id === pending.id) { const time = pending.time; pending = null; player.seekTo(time, true); }
+          if (event.data === 2) saveProgress(true);
+          if (event.data === 0) { saveProgress(true); state.videos[current] = { ...state.videos[current], completed: true }; persist(); render(); }
+        },
+        onError: event => { pending = null; $('start-button').disabled = false; $('status').textContent = `영상을 재생할 수 없어요 (${event.data}). YouTube에서 보기 또는 다른 영상을 선택해 주세요.`; },
+        onAutoplayBlocked: () => { $('status').textContent = '플레이어의 재생 버튼을 눌러 이야기를 시작해 주세요.'; }
+      }
+    });
+  } catch (error) { $('start-button').disabled = false; $('status').textContent = error.message; }
+}
+function waiting() {
+  visible = false; pending = null; if (ready) player.pauseVideo();
+  $('waiting').hidden = false; $('player-shell').hidden = true; $('playback').hidden = true;
+  $('video-title').textContent = '치이카와와 함께 쉬어 가요.'; $('position').textContent = 'OUR LITTLE WATCH ROOM';
+}
+$('start-button').onclick = () => start($('episode-select').value);
+$('resume-button').onclick = () => { if (state.last) start(state.last.id, state.last.time); };
+$('episode-select').onchange = render;
+$('previous').onclick = () => start(ids[ids.indexOf(current) - 1]);
+$('next').onclick = () => start(ids[ids.indexOf(current) + 1]);
+$('back-to-waiting').onclick = () => { saveProgress(true); waiting(); $('status').textContent = '다음 이야기를 고르거나, 보던 곳부터 이어 보세요.'; };
+$('complete').onclick = () => { const id = $('episode-select').value; state.videos[id] = { ...state.videos[id], completed: !state.videos[id]?.completed }; persist(); render(); };
+$('reset').onclick = () => {
+  if (!confirm('이 브라우저에 저장된 한국어 더빙판 시청 기록을 지울까요?')) return;
+  waiting(); state = { videos: {}, last: null }; persist(); showResume(); render();
+  $('status').textContent = '시청 기록을 초기화했어요. 새 이야기를 골라 주세요.';
 };
-$('resume-button').onclick = () => { if (state.last) select(state.last.id, state.last.time); };
-$('previous').onclick = () => select(ids[ids.indexOf(current) - 1]);
-$('next').onclick = () => select(ids[ids.indexOf(current) + 1]);
-$('complete').onclick = () => { state.videos[current] = { ...state.videos[current], completed: !state.videos[current]?.completed }; persist(); render(); };
-$('search').addEventListener('input', render);
-document.querySelectorAll('[data-filter]').forEach(button => button.onclick = () => { filter = button.dataset.filter; document.querySelectorAll('[data-filter]').forEach(b => b.classList.toggle('active', b === button)); render(); });
-$('reset').onclick = () => { if (!confirm('이 브라우저의 모든 시청 기록을 지울까요?')) return; if (ready) player.pauseVideo(); state = { videos: {}, last: null }; persist(); showResume(); render(); };
+// Catch browser back/forward cache restoration with the same waiting-screen behavior.
+window.addEventListener('pageshow', event => { if (event.persisted) { saveProgress(true); waiting(); showResume(); } });
 document.addEventListener('visibilitychange', () => { if (document.hidden) saveProgress(); });
-window.addEventListener('pagehide', saveProgress);
-setInterval(() => { saveProgress(); if (ready) sync(); }, 3000);
+window.addEventListener('pagehide', () => saveProgress());
+setInterval(() => { saveProgress(); if (ready && visible) sync(); }, 3000);
 showResume(); render();
-const script = document.createElement('script'); script.src = 'https://www.youtube.com/iframe_api'; script.onerror = () => { $('status').textContent = 'YouTube에 연결하지 못했습니다. 인터넷 연결 또는 콘텐츠 차단 설정을 확인해 주세요.'; }; document.head.append(script);
-setTimeout(() => { if (!ready) $('status').textContent = 'YouTube 연결이 지연되고 있습니다. 인터넷 연결을 확인하거나 YouTube에서 열기를 이용해 주세요.'; }, 15000);
+$('list-note').textContent = `${ids.length}개 영상 · 재생목록에 공개된 회차를 선택할 수 있어요.`;

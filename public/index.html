@@ -1,28 +1,11 @@
 <!doctype html>
-<html lang="ko">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f7f5ed">
-  <title>작은 상영관 · 치이카와</title>
-  <link rel="stylesheet" href="/styles.css"><script src="/app.js" defer></script>
-</head>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#fff2d6"><title>작은 상영관 · 치이카와</title><link rel="stylesheet" href="/styles.css"><script src="/episodes.js" defer></script><script src="/app.js" defer></script></head>
 <body>
-  <header class="topbar"><a class="brand" href="/">◌ <span>작은 상영관</span><small>CHIIKAWA WATCH ROOM</small></a><span class="local-badge"><i></i> 나만의 시청 기록</span></header>
-  <main>
-    <section class="intro"><div><p class="eyebrow">A LITTLE BREAK, A LITTLE JOY</p><h1>오늘도, 치이카와<span>와 함께.</span></h1><p class="intro-copy">작고 소중한 이야기들. 좋아하는 순간부터 천천히 이어 보세요.</p></div><div class="doodle" aria-hidden="true"><span class="spark">✦</span><div class="face"><b>• ᴗ •</b><span>●　　●</span></div><span class="flower">✿</span></div></section>
-    <section class="resume" id="resume" hidden><div><span class="pill">이어서 보기</span><strong id="resume-title"></strong><p id="resume-description"></p></div><button id="resume-button">계속 보기 <span>↗</span></button></section>
-    <div class="watch-layout">
-      <section class="watch">
-        <div class="player-shell"><div id="player"></div></div>
-        <div id="status" class="status" role="status">유튜브 플레이어를 준비하고 있어요.</div>
-        <div class="video-heading"><div><p class="eyebrow" id="position">지금 상영 중</p><h2 id="video-title">제2화 · 스핑크스 / 진짜다</h2></div><button id="complete" class="outline">✓ 시청 완료 표시</button></div>
-        <div class="playback"><button id="previous" class="outline" disabled>← 이전 영상</button><a id="youtube-link" href="https://www.youtube.com/watch?v=i6d3K6ln-d4" target="_blank" rel="noreferrer">YouTube에서 열기 ↗</a><button id="next" class="outline" disabled>다음 영상 →</button></div>
-        <section class="translation"><div class="translation-icon">あ<span>가</span></div><div class="translation-content"><div class="translation-label">한국어 번역 <span id="subtitle-status">2화 · 자막 필요</span></div><p id="subtitle-text">2화 한국어 자막 파일을 추가하면 영상 시간에 맞춰 표시합니다.</p><div class="subtitle-actions"><label class="outline subtitle-upload">자막 파일 추가<input id="subtitle-file" type="file" accept=".vtt,.srt,text/vtt"></label><button id="subtitle-toggle" class="outline" aria-pressed="true">자막 켜짐</button></div><small id="subtitle-help" role="status">한국어 VTT·SRT 파일을 선택하세요. 파일은 서버로 전송되지 않으며 이 브라우저에 저장됩니다.</small></div></section>
-        <p class="footnote">공식 YouTube 플레이어로 재생합니다. 영상의 공개 상태와 외부 재생 설정에 따라 시청이 제한될 수 있어요.</p>
-      </section>
-      <aside class="library"><div class="library-header"><div><p class="eyebrow">THE COLLECTION</p><h2>이야기 모음 <span id="count">01</span></h2></div><a href="https://www.youtube.com/playlist?list=PLMBLbvGZhkvJz0u2YjX8i9iEWcHJ-rwf5" target="_blank" rel="noreferrer" aria-label="유튜브 재생목록 열기">↗</a></div><label class="search"><span>⌕</span><input id="search" type="search" placeholder="제목 또는 목록 번호 검색" aria-label="영상 검색"></label><div class="filters"><button class="active" data-filter="all">전체</button><button data-filter="unwatched">아직 안 본 영상</button><button data-filter="watched">시청 완료</button></div><p class="list-note" id="list-note">제공하신 영상부터 시작해요. 재생목록을 불러오면 목록이 확장됩니다.</p><div id="episodes" class="episodes"></div><p id="empty" hidden>조건에 맞는 영상이 없어요.</p><div class="saved-note"><span>◷</span><p>마지막으로 본 순간을 기억해요.<small>이 브라우저에만 저장됩니다.</small></p></div></aside>
-    </div>
-    <footer><span>작은 이야기, 기분 좋은 쉼표.</span><button id="reset">시청 기록 초기화</button></footer>
-  </main>
-</body>
-</html>
+<header class="topbar"><a class="brand" href="/"><span class="brand-icon">✿</span><span>작은 상영관<small>CHIIKAWA WATCH ROOM</small></span></a><span class="local-badge">한국어 더빙 <i></i></span></header>
+<main>
+<section class="intro"><p class="eyebrow">A LITTLE STORY, A HAPPY DAY</p><h1>작고 귀여운 하루의 <span>시작.</span></h1><p>익숙한 목소리로 만나는 치이카와와 친구들.<br class="mobile-break"> 오늘은 어떤 이야기를 볼까요?</p><span class="intro-flower" aria-hidden="true">✳</span></section>
+<div class="watch-layout">
+<section class="watch-card"><div class="stage"><div class="waiting" id="waiting"><img src="/assets/waiting-pond.png" alt="연꽃 연못에서 쉬고 있는 치이카와와 친구들"><div class="waiting-caption"><span>잠깐의 쉼, 작은 행복</span><strong>보고 싶은 이야기를 골라 주세요.</strong></div></div><div class="player-shell" id="player-shell" hidden><div id="player"></div></div></div>
+<div class="watch-body"><div class="watch-heading"><div><p class="eyebrow" id="position">OUR LITTLE WATCH ROOM</p><h2 id="video-title">치이카와와 함께 쉬어 가요.</h2></div><span class="dub-badge">우리말 더빙</span></div><p id="status" class="status" role="status">회차를 선택하고 재생을 누르면 상영이 시작돼요.</p><div class="playback" id="playback" hidden><button id="previous" class="outline" disabled>← 이전 영상</button><button id="back-to-waiting" class="text-button">대기 화면으로</button><button id="next" class="outline" disabled>다음 영상 →</button></div><div class="watch-bottom"><span>작은 이야기, 기분 좋은 쉼표.</span><a id="youtube-link" href="https://www.youtube.com/watch?v=kzAfNg6pAvI&list=PLRU7nJfHLAe8" target="_blank" rel="noreferrer">YouTube에서 보기 ↗</a></div></div></section>
+<aside class="chooser"><section class="resume panel" id="resume" hidden><p class="eyebrow">WELCOME BACK</p><span class="section-label">지난 이야기, 계속 볼까요?</span><strong id="resume-title"></strong><p id="resume-description"></p><button id="resume-button" class="primary">이어서 보기 <span>↗</span></button></section><section class="panel collection"><div class="collection-heading"><div><p class="eyebrow">PICK YOUR EPISODE</p><h2>오늘의 이야기</h2></div><span aria-hidden="true">❀</span></div><label for="episode-select">보고 싶은 영상 선택</label><select id="episode-select"></select><button id="start-button" class="primary">선택한 영상 보기 <span>▷</span></button><p id="list-note" class="list-note">한국어 더빙판 재생목록</p><div class="collection-footer"><button id="complete" class="text-button">✓ 시청 완료 표시</button><a href="https://www.youtube.com/playlist?list=PLRU7nJfHLAe8" target="_blank" rel="noreferrer">전체 목록 ↗</a></div></section><div class="saved-note"><span aria-hidden="true">◷</span><p>마지막으로 본 순간을 기억해요.<small>로그인 없이, 이 브라우저에 저장됩니다.</small></p></div></aside>
+</div><footer><span>치이카와와 함께하는 포근한 시간 ♡</span><button id="reset" class="text-button">시청 기록 초기화</button></footer></main></body></html>

@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const root = fileURLToPath(new URL('./public/', import.meta.url));
-const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript' };
-const files = new Set(['/index.html', '/styles.css', '/app.js']);
+const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png' };
+const files = new Set(['/index.html', '/styles.css', '/app.js', '/episodes.js', '/assets/waiting-pond.png', '/assets/cream-friends.png']);
 const port = Number(process.env.PORT || 3000);
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
