@@ -17,6 +17,7 @@ try {
 } catch { storageAvailable = false; }
 let ids = catalog.map(item => item.id), current = SEED, player, ready = false, visible = false;
 let apiPromise, pending = null, rendered = '';
+let entryScreen = true, historyGeneration = 0;
 const title = id => names.get(id) || state.videos[id]?.title || `재생목록 ${ids.indexOf(id) + 1}번째 영상`;
 const timeText = time => `${Math.floor(time / 60)}분 ${Math.floor(time % 60)}초`;
 function persist() {
@@ -24,7 +25,8 @@ function persist() {
   catch { storageAvailable = false; $('status').textContent = '이 브라우저에서는 시청 기록을 저장할 수 없습니다.'; }
 }
 function showResume() {
-  const last = state.last; $('resume').hidden = !last;
+  const last = state.last; $('resume').hidden = !entryScreen || !last;
+  $('first-watch').hidden = !entryScreen || !!last;
   if (last) { $('resume-title').textContent = title(last.id); $('resume-description').textContent = `${timeText(last.time)}부터 이야기를 이어 가요.`; }
 }
 function render() {
@@ -88,6 +90,7 @@ function playPending() {
 }
 async function start(id, seconds) {
   if (!validId(id)) return;
+  const generation = historyGeneration;
   saveProgress(true);
   if (!ids.includes(id)) ids.push(id);
   render(); $('episode-select').value = id;
@@ -95,7 +98,10 @@ async function start(id, seconds) {
   pending = { id, time: validTime(seconds) ? seconds : previous?.completed ? 0 : validTime(previous?.time) ? previous.time : 0 };
   $('start-button').disabled = true; $('status').textContent = '이야기를 준비하고 있어요…';
   try {
-    await loadApi(); visible = true; $('waiting').hidden = true; $('player-shell').hidden = false; $('playback').hidden = false;
+    await loadApi();
+    if (generation !== historyGeneration) return;
+    visible = true; entryScreen = false; showResume();
+    $('waiting').hidden = true; $('player-shell').hidden = false; $('playback').hidden = false;
     if (ready) { playPending(); $('start-button').disabled = false; $('status').textContent = ''; return; }
     if (player) return;
     current = id;
@@ -103,8 +109,9 @@ async function start(id, seconds) {
       width: '100%', height: '100%', videoId: id,
       playerVars: { listType: 'playlist', list: PLAYLIST, playsinline: 1, origin: location.origin, autoplay: 0 },
       events: {
-        onReady: () => { ready = true; sync(); playPending(); $('start-button').disabled = false; $('status').textContent = storageAvailable ? '' : '이 브라우저에서는 시청 기록을 저장할 수 없습니다.'; },
+        onReady: () => { if (generation !== historyGeneration) return; ready = true; sync(); playPending(); $('start-button').disabled = false; $('status').textContent = storageAvailable ? '' : '이 브라우저에서는 시청 기록을 저장할 수 없습니다.'; },
         onStateChange: event => {
+          if (generation !== historyGeneration) return;
           // Capture the ended video's ID before synchronizing playlist transitions.
           const endedId = event.data === 0 ? player.getVideoData()?.video_id : null;
           if (visible && validId(endedId)) {
@@ -116,11 +123,11 @@ async function start(id, seconds) {
           if (event.data === 1 && pending && player.getVideoData()?.video_id === pending.id) { const time = pending.time; pending = null; player.seekTo(time, true); }
           if (event.data === 2) saveProgress(true);
         },
-        onError: event => { pending = null; $('start-button').disabled = false; $('status').textContent = `영상을 재생할 수 없어요 (${event.data}). YouTube에서 보기 또는 다른 영상을 선택해 주세요.`; },
-        onAutoplayBlocked: () => { $('status').textContent = '플레이어의 재생 버튼을 눌러 이야기를 시작해 주세요.'; }
+        onError: event => { if (generation !== historyGeneration) return; pending = null; $('start-button').disabled = false; $('status').textContent = `영상을 재생할 수 없어요 (${event.data}). YouTube에서 보기 또는 다른 영상을 선택해 주세요.`; },
+        onAutoplayBlocked: () => { if (generation === historyGeneration) $('status').textContent = '플레이어의 재생 버튼을 눌러 이야기를 시작해 주세요.'; }
       }
     });
-  } catch (error) { $('start-button').disabled = false; $('status').textContent = error.message; }
+  } catch (error) { if (generation === historyGeneration) { $('start-button').disabled = false; $('status').textContent = error.message; } }
 }
 function waiting() {
   visible = false; pending = null; if (ready) player.pauseVideo();
@@ -129,12 +136,25 @@ function waiting() {
 }
 $('start-button').onclick = () => start($('episode-select').value);
 $('resume-button').onclick = () => { if (state.last) start(state.last.id, state.last.time); };
+$('first-button').onclick = () => start(SEED, 0);
+$('clear-history').onclick = () => {
+  if (!confirm('저장된 시청 위치와 시청 완료 기록을 모두 지울까요?')) return;
+  historyGeneration++;
+  visible = false; pending = null; ready = false;
+  if (player) { player.destroy(); player = undefined; }
+  // Destroying the YouTube iframe also removes its mount point.
+  $('player-shell').replaceChildren(Object.assign(document.createElement('div'), { id: 'player' }));
+  state = { videos: {}, last: null }; persist();
+  current = SEED; entryScreen = true; waiting(); showResume(); render();
+  $('episode-select').value = SEED; $('start-button').disabled = false;
+  $('status').textContent = '시청기록을 지웠어요. 1화부터 다시 시작할 수 있어요.';
+};
 $('episode-select').onchange = render;
 $('previous').onclick = () => start(ids[ids.indexOf(current) - 1]);
 $('next').onclick = () => start(ids[ids.indexOf(current) + 1]);
 $('back-to-waiting').onclick = () => { saveProgress(true); waiting(); $('status').textContent = '다음 이야기를 고르거나, 보던 곳부터 이어 보세요.'; };
 // Catch browser back/forward cache restoration with the same waiting-screen behavior.
-window.addEventListener('pageshow', event => { if (event.persisted) { saveProgress(true); waiting(); showResume(); } });
+window.addEventListener('pageshow', event => { if (event.persisted) { saveProgress(true); waiting(); entryScreen = true; showResume(); } });
 document.addEventListener('visibilitychange', () => { if (document.hidden) saveProgress(); });
 window.addEventListener('pagehide', () => saveProgress());
 setInterval(() => { saveProgress(); if (ready && visible) sync(); }, 3000);
