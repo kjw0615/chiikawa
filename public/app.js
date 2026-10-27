@@ -38,7 +38,8 @@ function render() {
     if (ids.includes(selected)) $('episode-select').value = selected;
     rendered = signature;
   }
-  $('complete').textContent = state.videos[$('episode-select').value]?.completed ? '✓ 시청 완료 취소' : '✓ 시청 완료 표시';
+  const completed = ids.filter(id => state.videos[id]?.completed).length;
+  $('completed-count').textContent = completed ? `시청 완료 ${completed}편` : '시청하면 자동으로 기록돼요';
 }
 function saveProgress(force = false) {
   if (!ready || !visible || (!force && player.getPlayerState() !== 1)) return;
@@ -95,19 +96,25 @@ async function start(id, seconds) {
   $('start-button').disabled = true; $('status').textContent = '이야기를 준비하고 있어요…';
   try {
     await loadApi(); visible = true; $('waiting').hidden = true; $('player-shell').hidden = false; $('playback').hidden = false;
-    if (ready) { playPending(); $('start-button').disabled = false; $('status').textContent = '시청 위치는 자동으로 저장돼요.'; return; }
+    if (ready) { playPending(); $('start-button').disabled = false; $('status').textContent = ''; return; }
     if (player) return;
     current = id;
     player = new YT.Player('player', {
       width: '100%', height: '100%', videoId: id,
       playerVars: { listType: 'playlist', list: PLAYLIST, playsinline: 1, origin: location.origin, autoplay: 0 },
       events: {
-        onReady: () => { ready = true; sync(); playPending(); $('start-button').disabled = false; $('status').textContent = storageAvailable ? '시청 위치는 자동으로 저장돼요.' : '이 브라우저에서는 시청 기록을 저장할 수 없습니다.'; },
+        onReady: () => { ready = true; sync(); playPending(); $('start-button').disabled = false; $('status').textContent = storageAvailable ? '' : '이 브라우저에서는 시청 기록을 저장할 수 없습니다.'; },
         onStateChange: event => {
+          // Capture the ended video's ID before synchronizing playlist transitions.
+          const endedId = event.data === 0 ? player.getVideoData()?.video_id : null;
+          if (visible && validId(endedId)) {
+            saveProgress(true);
+            state.videos[endedId] = { ...state.videos[endedId], completed: true };
+            persist();
+          }
           sync();
           if (event.data === 1 && pending && player.getVideoData()?.video_id === pending.id) { const time = pending.time; pending = null; player.seekTo(time, true); }
           if (event.data === 2) saveProgress(true);
-          if (event.data === 0) { saveProgress(true); state.videos[current] = { ...state.videos[current], completed: true }; persist(); render(); }
         },
         onError: event => { pending = null; $('start-button').disabled = false; $('status').textContent = `영상을 재생할 수 없어요 (${event.data}). YouTube에서 보기 또는 다른 영상을 선택해 주세요.`; },
         onAutoplayBlocked: () => { $('status').textContent = '플레이어의 재생 버튼을 눌러 이야기를 시작해 주세요.'; }
@@ -126,12 +133,6 @@ $('episode-select').onchange = render;
 $('previous').onclick = () => start(ids[ids.indexOf(current) - 1]);
 $('next').onclick = () => start(ids[ids.indexOf(current) + 1]);
 $('back-to-waiting').onclick = () => { saveProgress(true); waiting(); $('status').textContent = '다음 이야기를 고르거나, 보던 곳부터 이어 보세요.'; };
-$('complete').onclick = () => { const id = $('episode-select').value; state.videos[id] = { ...state.videos[id], completed: !state.videos[id]?.completed }; persist(); render(); };
-$('reset').onclick = () => {
-  if (!confirm('이 브라우저에 저장된 한국어 더빙판 시청 기록을 지울까요?')) return;
-  waiting(); state = { videos: {}, last: null }; persist(); showResume(); render();
-  $('status').textContent = '시청 기록을 초기화했어요. 새 이야기를 골라 주세요.';
-};
 // Catch browser back/forward cache restoration with the same waiting-screen behavior.
 window.addEventListener('pageshow', event => { if (event.persisted) { saveProgress(true); waiting(); showResume(); } });
 document.addEventListener('visibilitychange', () => { if (document.hidden) saveProgress(); });
