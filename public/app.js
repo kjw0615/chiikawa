@@ -8,6 +8,54 @@ try { const saved = JSON.parse(localStorage.getItem(KEY)); if (saved && typeof s
 let ids = [SEED], player, current = SEED, filter = 'all', ready = false, pendingResume = null, rendered = '';
 const title = id => id === SEED ? '제2화 · 스핑크스 / 진짜다' : `재생목록 ${ids.indexOf(id) + 1}번째 영상`;
 const timeText = t => `${Math.floor(t / 60)}분 ${Math.floor(t % 60)}초`;
+const SUBTITLE_KEY = 'chiikawa-subtitles-ko-v1';
+let subtitles = [], subtitlesEnabled = true;
+function parseSubtitles(text) {
+  const timestamp = value => {
+    const parts = value.replace(',', '.').split(':').map(Number);
+    return parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
+  };
+  return text.replace(/^\uFEFF/, '').replace(/\r/g, '').split(/\n\s*\n/).flatMap(block => {
+    const lines = block.split('\n');
+    const index = lines.findIndex(line => /^\s*(?:(?:\d{2,}):)?\d{2}:\d{2}[.,]\d{3}\s+-->/.test(line));
+    if (index < 0) return [];
+    const match = lines[index].match(/^\s*((?:\d{2,}:)?\d{2}:\d{2}[.,]\d{3})\s+-->\s+((?:\d{2,}:)?\d{2}:\d{2}[.,]\d{3})(?:\s.*)?$/);
+    if (!match) return [];
+    const start = timestamp(match[1]), end = timestamp(match[2]);
+    const content = lines.slice(index + 1).join('\n').replace(/<[^>]*>/g, '').trim();
+    return Number.isFinite(start) && Number.isFinite(end) && end > start && content ? [{ start, end, text: content }] : [];
+  }).sort((a, b) => a.start - b.start);
+}
+try { const saved = localStorage.getItem(SUBTITLE_KEY); if (saved) subtitles = parseSubtitles(saved); } catch {}
+function updateSubtitles() {
+  const video = ready ? player.getVideoData()?.video_id : current;
+  const isEpisodeTwo = video === SEED;
+  $('subtitle-status').textContent = !isEpisodeTwo ? '다른 영상 · 자막 미등록' : subtitles.length ? `2화 · ${subtitles.length}개 자막` : '2화 · 자막 필요';
+  $('subtitle-toggle').disabled = !isEpisodeTwo || !subtitles.length;
+  let message = !isEpisodeTwo ? '현재 영상에는 한국어 자막이 없습니다. 추가한 파일은 2화에만 적용됩니다.' : !subtitles.length ? '2화 한국어 자막 파일을 추가하면 영상 시간에 맞춰 표시합니다.' : !subtitlesEnabled ? '한국어 자막을 껐습니다.' : '…';
+  if (isEpisodeTwo && subtitles.length && subtitlesEnabled && ready) {
+    const time = player.getCurrentTime();
+    const active = subtitles.filter(cue => cue.start <= time && time < cue.end);
+    if (active.length) message = active.map(cue => cue.text).join('\n');
+  }
+  if ($('subtitle-text').textContent !== message) $('subtitle-text').textContent = message;
+}
+$('subtitle-file').addEventListener('change', async event => {
+  const file = event.target.files[0]; if (!file) return;
+  try {
+    if (file.size > 1024 * 1024) throw new Error('1MB 이하의 자막 파일을 선택해 주세요.');
+    const text = await file.text(); const parsed = parseSubtitles(text);
+    if (!parsed.length) throw new Error('시간 정보가 있는 UTF-8 VTT 또는 SRT 자막 파일인지 확인해 주세요.');
+    subtitles = parsed;
+    try { localStorage.setItem(SUBTITLE_KEY, text); $('subtitle-help').textContent = `2화 한국어 자막 ${parsed.length}개를 이 브라우저에 저장했습니다.`; }
+    catch { $('subtitle-help').textContent = '자막을 불러왔지만 저장소 제한으로 이번 방문에만 사용할 수 있습니다.'; }
+    updateSubtitles();
+  } catch (error) { $('subtitle-help').textContent = error.message; }
+  event.target.value = '';
+});
+$('subtitle-toggle').onclick = () => { subtitlesEnabled = !subtitlesEnabled; $('subtitle-toggle').textContent = subtitlesEnabled ? '자막 켜짐' : '자막 꺼짐'; $('subtitle-toggle').setAttribute('aria-pressed', String(subtitlesEnabled)); updateSubtitles(); };
+setInterval(updateSubtitles, 150);
+updateSubtitles();
 function persist() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { storageAvailable = false; $('status').textContent = '브라우저 저장소를 사용할 수 없어 시청 기록이 유지되지 않습니다.'; } }
 function showResume() { const last = state.last; $('resume').hidden = !last; if (!last) return; $('resume-title').textContent = last.title || title(last.id); $('resume-description').textContent = `${timeText(last.time)}부터 이어 볼 수 있어요. 재생 버튼을 눌러 시작하세요.`; }
 function render() {
